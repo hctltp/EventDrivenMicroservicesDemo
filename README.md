@@ -450,4 +450,4 @@ If NotificationService needs reads (e.g., query sent notifications), add MediatR
 
 Run the app: Create an order via POST, then GET it to verify persistence and CQRS. The event should still trigger the notification.
 
-This adds meaningful functionality while keeping services decoupled. If you want to add more services (e.g., PaymentService subscribing to OrderCreated), or code for event sourcing, let me know!
+This adds meaningful functionality while keeping services decoupled. If you want to add more services (e.g., PaymentService subscribing to OrderCreated), or code for event sourcing.
