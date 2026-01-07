@@ -227,3 +227,227 @@ If events don't fire, check RabbitMQ UI for queues/exchanges created by MassTran
 - Security: Add API gateways (e.g., Ocelot) and authentication (JWT).
 
 This is a starting point—expand by adding more services or events. If you hit issues, debug with RabbitMQ logs or MassTransit's diagnostics. For deeper dives, check the MassTransit docs or the referenced tutorials. 
+
+### Step 10: Integrate Databases for Persistence
+To add real functionality, each microservice should persist data independently (database per service pattern). We'll use Entity Framework Core (EF Core) with SQLite for local development—it's lightweight and doesn't require a separate server. In production, switch to PostgreSQL, SQL Server, or a cloud DB like Azure Cosmos DB.
+
+#### Substep 10.1: Add EF Core to OrderService
+1. In the `OrderService` project, install packages:
+   ```
+   dotnet add package Microsoft.EntityFrameworkCore.Sqlite
+   dotnet add package Microsoft.EntityFrameworkCore.Tools  // For migrations
+   ```
+2. Create a `Models/Order.cs` class:
+   ```csharp
+   namespace OrderService.Models;
+   
+   public class Order
+   {
+       public Guid Id { get; set; }
+       public string CustomerName { get; set; }
+       public DateTime CreatedAt { get; set; }
+   }
+   ```
+3. Create a DbContext in `OrderService/Data/OrderDbContext.cs`:
+   ```csharp
+   using Microsoft.EntityFrameworkCore;
+   using OrderService.Models;
+   
+   namespace OrderService.Data;
+   
+   public class OrderDbContext : DbContext
+   {
+       public DbSet<Order> Orders { get; set; }
+   
+       public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options) { }
+   
+       protected override void OnModelCreating(ModelBuilder modelBuilder)
+       {
+           modelBuilder.Entity<Order>().HasKey(o => o.Id);
+       }
+   }
+   ```
+4. In `OrderService/Program.cs`, add the DbContext:
+   ```csharp
+   // Add after builder.Services.AddControllers();
+   builder.Services.AddDbContext<OrderDbContext>(options =>
+       options.UseSqlite("Data Source=orders.db"));  // File-based DB
+   ```
+5. Update the `OrderController` to persist the order:
+   ```csharp
+   // In CreateOrder method, after var orderId = Guid.NewGuid();
+   var order = new Order
+   {
+       Id = orderId,
+       CustomerName = dto.CustomerName,
+       CreatedAt = DateTime.UtcNow
+   };
+   
+   using (var scope = HttpContext.RequestServices.CreateScope())
+   {
+       var dbContext = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
+       dbContext.Orders.Add(order);
+       await dbContext.SaveChangesAsync();
+   }
+   
+   // Then publish the event as before
+   ```
+6. Add migrations and update DB:
+   ```
+   dotnet ef migrations add InitialCreate --project OrderService
+   dotnet ef database update --project OrderService
+   ```
+
+Now, orders are saved to a local `orders.db` file.
+
+#### Substep 10.2: Add Database to NotificationService (Optional for Read Model)
+For now, NotificationService doesn't need persistence, but if we expand it (e.g., to log notifications), repeat similar steps:
+- Add EF Core packages.
+- Create a Notification model and DbContext.
+- In the consumer, save to DB after processing the event.
+
+This ensures data durability beyond just events.
+
+### Step 11: Implement CQRS Pattern
+CQRS separates write operations (commands) from read operations (queries), improving scalability in microservices. Commands mutate state and can trigger events; queries read from potentially denormalized views.
+
+We'll use MediatR, a popular library for in-process messaging, to handle commands and queries within OrderService. This pairs well with event-driven architecture: Commands publish domain events via MassTransit.
+
+#### Substep 11.1: Add MediatR to OrderService
+1. Install package:
+   ```
+   dotnet add package MediatR
+   dotnet add package MediatR.Extensions.Microsoft.DependencyInjection  // For DI
+   ```
+2. In `OrderService/Program.cs`, register MediatR:
+   ```csharp
+   // After AddDbContext
+   builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+   ```
+
+#### Substep 11.2: Define Command and Handler for Creating Orders
+1. Create `Commands/CreateOrderCommand.cs`:
+   ```csharp
+   using MediatR;
+   using SharedEvents;
+   
+   namespace OrderService.Commands;
+   
+   public class CreateOrderCommand : IRequest<Guid>
+   {
+       public string CustomerName { get; set; }
+   }
+   
+   public class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, Guid>
+   {
+       private readonly OrderDbContext _dbContext;
+       private readonly IPublishEndpoint _publishEndpoint;
+   
+       public CreateOrderCommandHandler(OrderDbContext dbContext, IPublishEndpoint publishEndpoint)
+       {
+           _dbContext = dbContext;
+           _publishEndpoint = publishEndpoint;
+       }
+   
+       public async Task<Guid> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
+       {
+           var orderId = Guid.NewGuid();
+           var order = new Models.Order
+           {
+               Id = orderId,
+               CustomerName = request.CustomerName,
+               CreatedAt = DateTime.UtcNow
+           };
+   
+           _dbContext.Orders.Add(order);
+           await _dbContext.SaveChangesAsync(cancellationToken);
+   
+           await _publishEndpoint.Publish(new OrderCreatedEvent
+           {
+               OrderId = orderId,
+               CustomerName = request.CustomerName,
+               CreatedAt = order.CreatedAt
+           });
+   
+           return orderId;
+       }
+   }
+   ```
+
+#### Substep 11.3: Define Query and Handler for Getting Orders
+1. Create `Queries/GetOrderQuery.cs`:
+   ```csharp
+   using MediatR;
+   using OrderService.Models;
+   
+   namespace OrderService.Queries;
+   
+   public class GetOrderQuery : IRequest<Order>
+   {
+       public Guid OrderId { get; set; }
+   }
+   
+   public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, Order>
+   {
+       private readonly OrderDbContext _dbContext;
+   
+       public GetOrderQueryHandler(OrderDbContext dbContext)
+       {
+           _dbContext = dbContext;
+       }
+   
+       public async Task<Order> Handle(GetOrderQuery request, CancellationToken cancellationToken)
+       {
+           return await _dbContext.Orders.FindAsync(request.OrderId);
+       }
+   }
+   ```
+
+#### Substep 11.4: Update Controller to Use MediatR
+1. In `OrderController.cs`:
+   ```csharp
+   using MediatR;
+   using OrderService.Commands;
+   using OrderService.Queries;
+   
+   // Replace IPublishEndpoint with IMediator
+   private readonly IMediator _mediator;
+   
+   public OrderController(IMediator mediator)
+   {
+       _mediator = mediator;
+   }
+   
+   [HttpPost]
+   public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto dto)
+   {
+       var command = new CreateOrderCommand { CustomerName = dto.CustomerName };
+       var orderId = await _mediator.Send(command);
+       return Ok(new { OrderId = orderId });
+   }
+   
+   [HttpGet("{orderId}")]
+   public async Task<IActionResult> GetOrder(Guid orderId)
+   {
+       var query = new GetOrderQuery { OrderId = orderId };
+       var order = await _mediator.Send(query);
+       if (order == null) return NotFound();
+       return Ok(order);
+   }
+   ```
+   - Remove the old direct DB and publish code from CreateOrder.
+
+This separates concerns: Commands handle writes and events; queries handle reads. For advanced CQRS, use a separate read model (e.g., a materialized view updated via events) for queries, perhaps in a dedicated read-side service.
+
+#### Substep 11.5: Apply CQRS to NotificationService (If Expanding)
+If NotificationService needs reads (e.g., query sent notifications), add MediatR similarly. For now, the consumer is a command-like handler.
+
+### Step 12: Enhanced Testing and Best Practices
+- Test CQRS: Use xUnit or NUnit to test handlers independently.
+- Event Sourcing (Optional Next Level): Instead of storing state in DB, store events (e.g., using EF Core for event store). Rebuild state by replaying events. Libraries like EventFlow or Marten can help.
+- Saga/Orchestration: For multi-service workflows (e.g., payment after order), use MassTransit's Saga feature.
+- Resilience: Add Polly for retries in commands.
+
+Run the app: Create an order via POST, then GET it to verify persistence and CQRS. The event should still trigger the notification.
+
+This adds meaningful functionality while keeping services decoupled. If you want to add more services (e.g., PaymentService subscribing to OrderCreated), or code for event sourcing, let me know!
