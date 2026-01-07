@@ -1,0 +1,11 @@
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\bin\Debug\net8.0\SharedEvents.deps.json
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\bin\Debug\net8.0\SharedEvents.dll
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\bin\Debug\net8.0\SharedEvents.pdb
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.AssemblyInfoInputs.cache
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.AssemblyInfo.cs
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.csproj.CoreCompileInputs.cache
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.dll
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\refint\SharedEvents.dll
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\SharedEvents.pdb
+C:\Users\hamdi.cataltepe\source\repos\EventDrivenMicroservicesDemo\SharedEvents\obj\Debug\net8.0\ref\SharedEvents.dll
