@@ -1,0 +1,58 @@
+### Visual Studio / .NET ###
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+**/bin/
+**/obj/
+
+# Rider
+.idea/
+
+# NuGet
+packages/
+.nuget/packages/
+*.nupkg
+
+# Visual Studio Code
+.vscode/
+
+# Publish output
+publish/
+publish/**
+
+# Logs
+*.log
+TestResults/
+
+# Coverage
+coverage*/
+*.coverage
+*.coveragexml
+
+# User-specific files
+*.user
+*.userprefs
+*.suo
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# Dotnet temporary files
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Core secrets and local settings
+appsettings.Development.json
+appsettings.*.Local.json
+
+# OS generated files
+Thumbs.db
+.DS_Store

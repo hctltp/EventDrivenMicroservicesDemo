@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="NotificationService/NotificationService.csproj" />
+  <Project Path="OrderService/OrderService.csproj" />
+  <Project Path="SharedEvents/SharedEvents.csproj" />
+</Solution>
