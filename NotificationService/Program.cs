@@ -1,4 +1,5 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using NotificationService;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,9 @@ builder.Services.AddMassTransit(x =>
     });
     
 });
+
+builder.Services.AddDbContext<NotificationService.Data.NotificationDbContext>(options =>
+    options.UseSqlite("Data Source=notifications.db"));
 
 var app = builder.Build();
 
